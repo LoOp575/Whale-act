@@ -142,12 +142,12 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <span className={`text-[11px] font-semibold px-2 py-1 rounded-md ${
-                    signal.type === "STRONG_BUY" ? "bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/20" :
-                    signal.type === "BUY" ? "bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/20" :
-                    signal.type === "SELL" ? "bg-accent-rose/15 text-accent-rose border border-accent-rose/20" :
+                    signal.type === "BUY" ? "bg-accent-emerald/15 text-accent-emerald border border-accent-emerald/20" :
+                    signal.type === "WAIT" ? "bg-accent-cyan/15 text-accent-cyan border border-accent-cyan/20" :
+                    signal.type === "EXIT" || signal.type === "REJECT" || signal.type === "WARNING" ? "bg-accent-rose/15 text-accent-rose border border-accent-rose/20" :
                     "bg-dark-700/50 text-dark-300 border border-dark-600/30"
                   }`}>
-                    {signal.type.replace("_", " ")}
+                    {signal.type}
                   </span>
                 </div>
                 <div className="flex items-center justify-between mt-2">
@@ -159,7 +159,7 @@ export default function DashboardPage() {
                       {signal.priceChange24h >= 0 ? "+" : ""}{signal.priceChange24h}%
                     </span>
                   </div>
-                  <span className="text-[11px] text-dark-500">{signal.whaleCount} whales</span>
+                  <span className="text-[11px] text-dark-500">{signal.walletCopied}</span>
                 </div>
               </div>
             ))}

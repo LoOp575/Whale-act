@@ -10,7 +10,7 @@ export { activities } from "./activities";
 export type { ActivityData, ActivityAction } from "./activities";
 
 export { signals } from "./signals";
-export type { SignalData } from "./signals";
+export type { SignalData, SignalType } from "./signals";
 
 export { paperTrades, paperTradingSummary } from "./paperTrades";
 export type { PaperTradeData, PaperTradingSummary } from "./paperTrades";
