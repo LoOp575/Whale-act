@@ -4,7 +4,7 @@
 // ============================================================
 
 export { wallets } from "./wallets";
-export type { WalletData } from "./wallets";
+export type { WalletData, WalletTag } from "./wallets";
 
 export { activities } from "./activities";
 export type { ActivityData } from "./activities";

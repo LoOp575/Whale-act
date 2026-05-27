@@ -3,6 +3,8 @@
 // WhaleCopy AI — No real wallets, no real addresses
 // ============================================================
 
+export type WalletTag = "watchlist" | "testing" | "good" | "rejected" | "neutral";
+
 export interface WalletData {
   id: string;
   address: string;
@@ -14,6 +16,7 @@ export interface WalletData {
   avgHoldTime: string;
   copyScore: number; // 0–100, how "copyable" the wallet is
   status: "active" | "inactive" | "new";
+  tag: WalletTag;
   isTracked: boolean;
   riskScore: "Low" | "Medium" | "High";
   lastActive: string;
@@ -31,6 +34,7 @@ export const wallets: WalletData[] = [
     avgHoldTime: "4.2h",
     copyScore: 92,
     status: "active",
+    tag: "good",
     isTracked: true,
     riskScore: "Medium",
     lastActive: "2 min ago",
@@ -46,6 +50,7 @@ export const wallets: WalletData[] = [
     avgHoldTime: "12.5h",
     copyScore: 88,
     status: "active",
+    tag: "good",
     isTracked: true,
     riskScore: "Low",
     lastActive: "5 min ago",
@@ -61,6 +66,7 @@ export const wallets: WalletData[] = [
     avgHoldTime: "1.8h",
     copyScore: 65,
     status: "active",
+    tag: "watchlist",
     isTracked: false,
     riskScore: "High",
     lastActive: "8 min ago",
@@ -76,6 +82,7 @@ export const wallets: WalletData[] = [
     avgHoldTime: "3.2d",
     copyScore: 95,
     status: "active",
+    tag: "good",
     isTracked: true,
     riskScore: "Low",
     lastActive: "15 min ago",
@@ -91,6 +98,7 @@ export const wallets: WalletData[] = [
     avgHoldTime: "45s",
     copyScore: 30,
     status: "active",
+    tag: "rejected",
     isTracked: false,
     riskScore: "High",
     lastActive: "1 min ago",
@@ -106,6 +114,7 @@ export const wallets: WalletData[] = [
     avgHoldTime: "8.1h",
     copyScore: 81,
     status: "active",
+    tag: "testing",
     isTracked: true,
     riskScore: "Medium",
     lastActive: "18 min ago",
@@ -121,6 +130,7 @@ export const wallets: WalletData[] = [
     avgHoldTime: "2.4d",
     copyScore: 55,
     status: "inactive",
+    tag: "rejected",
     isTracked: false,
     riskScore: "Medium",
     lastActive: "3 hours ago",
@@ -136,6 +146,7 @@ export const wallets: WalletData[] = [
     avgHoldTime: "6.5h",
     copyScore: 72,
     status: "active",
+    tag: "neutral",
     isTracked: false,
     riskScore: "Low",
     lastActive: "35 min ago",
@@ -151,6 +162,7 @@ export const wallets: WalletData[] = [
     avgHoldTime: "12min",
     copyScore: 40,
     status: "active",
+    tag: "watchlist",
     isTracked: false,
     riskScore: "High",
     lastActive: "30s ago",
@@ -166,6 +178,7 @@ export const wallets: WalletData[] = [
     avgHoldTime: "7.8d",
     copyScore: 97,
     status: "new",
+    tag: "testing",
     isTracked: false,
     riskScore: "Low",
     lastActive: "1 hour ago",
