@@ -1,7 +1,6 @@
 // ============================================================
 // Services — Barrel Export
-// All service functions are placeholders returning mock data.
-// Replace with real API calls when ready.
+// All service functions. Falls back to mock data when API unavailable.
 // ============================================================
 
 export {
@@ -12,13 +11,16 @@ export {
 } from "./heliusService";
 
 export {
+  fetchTokenPairs,
+  fetchTokenProfile,
   fetchTokenData,
   fetchMultipleTokens,
   searchTokens,
   checkLiquidity,
+  normalizeDexTokenData,
 } from "./dexScreenerService";
 
-export type { TokenMarketData } from "./dexScreenerService";
+export type { TokenMarketData, DexPairRaw } from "./dexScreenerService";
 
 export {
   generateSignals,
