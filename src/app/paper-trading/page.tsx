@@ -1,4 +1,4 @@
-import { PageHeader, Badge } from "@/components/ui";
+import { PageHeader, Badge, PaperTradeTable } from "@/components/ui";
 import { paperTrades, paperTradingSummary } from "@/lib/mock-data";
 
 export default function PaperTradingPage() {
@@ -43,57 +43,7 @@ export default function PaperTradingPage() {
           <h2 className="text-base font-semibold text-white">Open Positions</h2>
           <span className="text-xs text-dark-500 ml-1">({openTrades.length})</span>
         </div>
-        <div className="bg-dark-800/40 border border-dark-700/30 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-dark-700/40">
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Token</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Copied Wallet</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Entry Price</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">PnL</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Duration</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Entry Reason</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-dark-700/20">
-                {openTrades.map((trade) => (
-                  <tr key={trade.id} className="hover:bg-dark-800/60 transition-colors">
-                    <td className="px-4 py-3.5">
-                      <span className="text-sm font-bold text-white">{trade.token}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="text-sm text-dark-200">{trade.copiedFrom}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="text-sm text-dark-300 font-mono">${trade.entryPrice}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div>
-                        <span className={`text-sm font-semibold ${trade.pnl >= 0 ? "text-accent-emerald" : "text-accent-rose"}`}>
-                          {trade.pnl >= 0 ? "+" : ""}${trade.pnl}
-                        </span>
-                        <span className={`text-xs ml-1.5 ${trade.pnlPercent >= 0 ? "text-accent-emerald/70" : "text-accent-rose/70"}`}>
-                          ({trade.pnlPercent >= 0 ? "+" : ""}{trade.pnlPercent.toFixed(2)}%)
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="text-sm text-dark-300">{trade.duration}</span>
-                    </td>
-                    <td className="px-4 py-3.5 max-w-[240px]">
-                      <p className="text-xs text-dark-400 truncate">{trade.entryReason}</p>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <Badge variant="info">Open</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <PaperTradeTable trades={openTrades} />
       </div>
 
       {/* Closed Trades */}
@@ -103,65 +53,7 @@ export default function PaperTradingPage() {
           <h2 className="text-base font-semibold text-white">Closed Trades</h2>
           <span className="text-xs text-dark-500 ml-1">({closedTrades.length})</span>
         </div>
-        <div className="bg-dark-800/40 border border-dark-700/30 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-dark-700/40">
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Token</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Copied Wallet</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Entry</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Exit</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">PnL</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Duration</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Entry Reason</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Exit Reason</th>
-                  <th className="text-xs font-medium text-dark-400 uppercase tracking-wider px-4 py-3 text-left">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-dark-700/20">
-                {closedTrades.map((trade) => (
-                  <tr key={trade.id} className="hover:bg-dark-800/60 transition-colors opacity-80">
-                    <td className="px-4 py-3.5">
-                      <span className="text-sm font-bold text-white">{trade.token}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="text-sm text-dark-300">{trade.copiedFrom}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="text-sm text-dark-300 font-mono">${trade.entryPrice}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="text-sm text-dark-200 font-mono">${trade.exitPrice}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div>
-                        <span className={`text-sm font-semibold ${trade.pnl >= 0 ? "text-accent-emerald" : "text-accent-rose"}`}>
-                          {trade.pnl >= 0 ? "+" : ""}${trade.pnl}
-                        </span>
-                        <span className={`text-xs ml-1.5 ${trade.pnlPercent >= 0 ? "text-accent-emerald/70" : "text-accent-rose/70"}`}>
-                          ({trade.pnlPercent >= 0 ? "+" : ""}{trade.pnlPercent.toFixed(2)}%)
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="text-sm text-dark-400">{trade.duration}</span>
-                    </td>
-                    <td className="px-4 py-3.5 max-w-[200px]">
-                      <p className="text-xs text-dark-400 truncate">{trade.entryReason}</p>
-                    </td>
-                    <td className="px-4 py-3.5 max-w-[200px]">
-                      <p className="text-xs text-dark-400 truncate">{trade.exitReason}</p>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <Badge variant="default">Closed</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <PaperTradeTable trades={closedTrades} showExit />
       </div>
 
       {/* Disclaimer */}
