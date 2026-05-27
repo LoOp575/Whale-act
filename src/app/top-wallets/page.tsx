@@ -1,5 +1,5 @@
 import { PageHeader, Table, Badge, Button } from "@/components/ui";
-import { topWallets } from "@/data/dummy";
+import { wallets } from "@/lib/mock-data";
 
 export default function TopWalletsPage() {
   return (
@@ -31,8 +31,8 @@ export default function TopWalletsPage() {
       </div>
 
       {/* Wallets Table */}
-      <Table headers={["Wallet", "7D P&L", "30D P&L", "Win Rate", "Trades", "Avg Hold", "Risk", "Status"]}>
-        {topWallets.map((wallet) => (
+      <Table headers={["Wallet", "ROI 24h", "Realized PnL", "Win Rate", "Avg Hold", "Copy Score", "Risk", "Status"]}>
+        {wallets.map((wallet) => (
           <tr key={wallet.id} className="hover:bg-dark-800/40 transition-colors">
             <td className="table-cell">
               <div>
@@ -41,20 +41,34 @@ export default function TopWalletsPage() {
               </div>
             </td>
             <td className="table-cell">
-              <span className={wallet.pnl7d >= 0 ? "text-accent-emerald" : "text-accent-rose"}>
-                {wallet.pnl7d >= 0 ? "+" : ""}${wallet.pnl7d.toLocaleString()}
+              <span className={wallet.roi24h >= 0 ? "text-accent-emerald font-medium" : "text-accent-rose font-medium"}>
+                {wallet.roi24h >= 0 ? "+" : ""}{wallet.roi24h}%
               </span>
             </td>
             <td className="table-cell">
-              <span className={wallet.pnl30d >= 0 ? "text-accent-emerald" : "text-accent-rose"}>
-                {wallet.pnl30d >= 0 ? "+" : ""}${wallet.pnl30d.toLocaleString()}
+              <span className="text-white font-medium">
+                ${wallet.realizedPnl >= 1000 ? (wallet.realizedPnl / 1000).toFixed(1) + "K" : wallet.realizedPnl.toLocaleString()}
               </span>
             </td>
             <td className="table-cell">
               <span className="text-white font-medium">{wallet.winRate}%</span>
             </td>
-            <td className="table-cell text-dark-300">{wallet.totalTrades}</td>
             <td className="table-cell text-dark-300">{wallet.avgHoldTime}</td>
+            <td className="table-cell">
+              <div className="flex items-center gap-2">
+                <div className="w-12 h-1.5 bg-dark-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${
+                      wallet.copyScore >= 80 ? "bg-accent-emerald" :
+                      wallet.copyScore >= 60 ? "bg-accent-amber" :
+                      "bg-accent-rose"
+                    }`}
+                    style={{ width: `${wallet.copyScore}%` }}
+                  />
+                </div>
+                <span className="text-xs text-dark-300">{wallet.copyScore}</span>
+              </div>
+            </td>
             <td className="table-cell">
               <Badge
                 variant={

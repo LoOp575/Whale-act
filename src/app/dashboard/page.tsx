@@ -1,5 +1,5 @@
 import { PageHeader, Card } from "@/components/ui";
-import { liveActivities, aiSignals, topWallets } from "@/data/dummy";
+import { activities, signals, wallets } from "@/lib/mock-data";
 
 // Dashboard-specific stat data
 const stats = [
@@ -72,8 +72,8 @@ const stats = [
 
 export default function DashboardPage() {
   // Get top 3 wallets by 7d PnL for "Top Wallet Today" section
-  const topWalletsToday = [...topWallets]
-    .sort((a, b) => b.pnl7d - a.pnl7d)
+  const topWalletsToday = [...wallets]
+    .sort((a, b) => b.roi24h - a.roi24h)
     .slice(0, 5);
 
   return (
@@ -126,7 +126,7 @@ export default function DashboardPage() {
             </a>
           </div>
           <div className="space-y-3">
-            {aiSignals.slice(0, 5).map((signal) => (
+            {signals.slice(0, 5).map((signal) => (
               <div
                 key={signal.id}
                 className="p-3.5 rounded-lg bg-dark-850/60 border border-dark-700/30 hover:border-dark-600/50 transition-all"
@@ -178,7 +178,7 @@ export default function DashboardPage() {
             </a>
           </div>
           <div className="space-y-2">
-            {liveActivities.slice(0, 7).map((activity) => (
+            {activities.slice(0, 7).map((activity) => (
               <div
                 key={activity.id}
                 className="flex items-center gap-3 p-3 rounded-lg hover:bg-dark-800/40 transition-colors"
@@ -263,10 +263,10 @@ export default function DashboardPage() {
 
                   {/* Stats */}
                   <div className="text-right flex-shrink-0">
-                    <p className={`text-sm font-bold ${wallet.pnl7d >= 0 ? "text-accent-emerald" : "text-accent-rose"}`}>
-                      {wallet.pnl7d >= 0 ? "+" : ""}${(wallet.pnl7d / 1000).toFixed(1)}K
+                    <p className={`text-sm font-bold ${wallet.roi24h >= 0 ? "text-accent-emerald" : "text-accent-rose"}`}>
+                      {wallet.roi24h >= 0 ? "+" : ""}{wallet.roi24h}%
                     </p>
-                    <p className="text-[11px] text-dark-500">7d PnL</p>
+                    <p className="text-[11px] text-dark-500">24h ROI</p>
                   </div>
                 </div>
 
@@ -276,7 +276,7 @@ export default function DashboardPage() {
                     Win: <span className="text-white font-medium">{wallet.winRate}%</span>
                   </span>
                   <span className="text-[11px] text-dark-500">
-                    Trades: <span className="text-dark-300">{wallet.totalTrades}</span>
+                    Score: <span className="text-dark-300">{wallet.copyScore}</span>
                   </span>
                   <span className={`text-[11px] font-medium ml-auto px-1.5 py-0.5 rounded ${
                     wallet.riskScore === "Low" ? "bg-accent-emerald/10 text-accent-emerald" :

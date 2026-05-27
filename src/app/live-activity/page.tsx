@@ -1,5 +1,5 @@
 import { PageHeader, Badge, Card } from "@/components/ui";
-import { liveActivities } from "@/data/dummy";
+import { activities } from "@/lib/mock-data";
 
 export default function LiveActivityPage() {
   return (
@@ -35,7 +35,7 @@ export default function LiveActivityPage() {
 
       {/* Activity Feed */}
       <div className="space-y-3">
-        {liveActivities.map((activity) => (
+        {activities.map((activity) => (
           <Card key={activity.id} hover className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">

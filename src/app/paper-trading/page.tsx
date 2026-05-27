@@ -1,5 +1,5 @@
 import { PageHeader, Card, StatCard, Table, Badge, Button } from "@/components/ui";
-import { paperTrades, paperTradingSummary } from "@/data/dummy";
+import { paperTrades, paperTradingSummary } from "@/lib/mock-data";
 
 export default function PaperTradingPage() {
   const openTrades = paperTrades.filter((t) => t.status === "OPEN");

@@ -1,5 +1,5 @@
 import { PageHeader, Card, Badge } from "@/components/ui";
-import { aiSignals } from "@/data/dummy";
+import { signals } from "@/lib/mock-data";
 
 function getSignalBadge(type: string) {
   switch (type) {
@@ -36,7 +36,7 @@ export default function AISignalsPage() {
 
       {/* Signal Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {aiSignals.map((signal) => (
+        {signals.map((signal) => (
           <Card key={signal.id} hover className="p-5">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
