@@ -5,6 +5,7 @@
 
 import { wallets, activities } from "@/lib/mock-data";
 import type { WalletData, ActivityData } from "@/lib/mock-data";
+import { serverConfig, isApiConfigured } from "@/lib/config";
 
 /**
  * Fetch top whale wallets from Helius enhanced API
@@ -12,8 +13,10 @@ import type { WalletData, ActivityData } from "@/lib/mock-data";
  * Endpoint: https://api.helius.xyz/v0/addresses/{address}/transactions
  */
 export async function fetchTopWallets(): Promise<WalletData[]> {
+  if (!isApiConfigured()) return wallets; // Fallback to mock data
+
   // TODO: implement real Helius API integration
-  // - Use API key from env: process.env.HELIUS_API_KEY
+  // - Use serverConfig.heliusApiKey
   // - Fetch wallet balances, transaction history
   // - Calculate ROI, winrate, copy score from on-chain data
   return wallets;

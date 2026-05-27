@@ -5,6 +5,7 @@
 
 import { signals } from "@/lib/mock-data";
 import type { SignalData, SignalType } from "@/lib/mock-data";
+import { isAiConfigured } from "@/lib/config";
 
 /**
  * Generate AI signals based on whale activity patterns
@@ -14,6 +15,8 @@ import type { SignalData, SignalType } from "@/lib/mock-data";
  * - Apply ML model for confidence scoring
  */
 export async function generateSignals(): Promise<SignalData[]> {
+  if (!isAiConfigured()) return signals; // Fallback to mock data
+
   // TODO: implement real signal generation pipeline
   // 1. Fetch recent whale transactions (heliusService)
   // 2. Fetch token market data (dexScreenerService)

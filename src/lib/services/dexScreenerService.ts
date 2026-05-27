@@ -3,6 +3,8 @@
 // WhaleCopy AI — Placeholder only, no real API calls yet
 // ============================================================
 
+import { publicConfig } from "@/lib/config";
+
 /**
  * Token market data from DexScreener
  */
