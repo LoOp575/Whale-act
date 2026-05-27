@@ -185,18 +185,18 @@ export default function DashboardPage() {
               >
                 {/* Action badge */}
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  activity.action === "BUY"
+                  activity.action === "bought"
                     ? "bg-accent-emerald/10 border border-accent-emerald/20"
-                    : activity.action === "SELL"
+                    : activity.action === "sold" || activity.action === "warning"
                     ? "bg-accent-rose/10 border border-accent-rose/20"
                     : "bg-accent-cyan/10 border border-accent-cyan/20"
                 }`}>
                   <span className={`text-xs font-bold ${
-                    activity.action === "BUY" ? "text-accent-emerald" :
-                    activity.action === "SELL" ? "text-accent-rose" :
+                    activity.action === "bought" ? "text-accent-emerald" :
+                    activity.action === "sold" || activity.action === "warning" ? "text-accent-rose" :
                     "text-accent-cyan"
                   }`}>
-                    {activity.action === "BUY" ? "B" : activity.action === "SELL" ? "S" : "SW"}
+                    {activity.action === "bought" ? "B" : activity.action === "sold" ? "S" : activity.action === "warning" ? "!" : "+"}
                   </span>
                 </div>
 
