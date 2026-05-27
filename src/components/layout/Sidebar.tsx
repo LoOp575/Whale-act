@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
-// Simple icon components (replacing lucide-react for offline compatibility)
 const icons = {
   dashboard: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zm10.5 0A2.25 2.25 0 0116.5 3.75h2.25A2.25 2.25 0 0121 6v2.25a2.25 2.25 0 01-2.25 2.25H16.5a2.25 2.25 0 01-2.25-2.25V6zM3.75 16.5A2.25 2.25 0 016 14.25h2.25a2.25 2.25 0 012.25 2.25v2.25A2.25 2.25 0 018.25 21H6a2.25 2.25 0 01-2.25-2.25v-2.25zm10.5 0a2.25 2.25 0 012.25-2.25h2.25A2.25 2.25 0 0121 16.5v2.25A2.25 2.25 0 0118.75 21H16.5a2.25 2.25 0 01-2.25-2.25v-2.25z" />
     </svg>
   ),
   wallets: (
@@ -49,19 +49,20 @@ const navigation = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-dark-900/95 backdrop-blur-xl border-r border-dark-700/50 flex flex-col">
+  const sidebarContent = (
+    <>
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-dark-700/50">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-whale-500 to-accent-cyan flex items-center justify-center">
-          <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+      <div className="flex items-center gap-3 px-5 py-5 border-b border-dark-700/40">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-whale-500 to-accent-cyan flex items-center justify-center shadow-lg shadow-whale-500/20">
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
           </svg>
         </div>
         <div>
-          <h1 className="text-lg font-bold text-white">WhaleCopy</h1>
-          <p className="text-xs text-dark-400">AI Trading Dashboard</p>
+          <h1 className="text-base font-bold text-white tracking-tight">WhaleCopy AI</h1>
+          <p className="text-[11px] text-dark-400 font-medium">AI Whale Scanner</p>
         </div>
       </div>
 
@@ -73,25 +74,87 @@ export default function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              className={isActive ? "sidebar-link-active" : "sidebar-link"}
+              onClick={() => setMobileOpen(false)}
+              className={`
+                group flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium
+                transition-all duration-200 ease-out
+                ${isActive
+                  ? "bg-gradient-to-r from-whale-600/25 to-whale-500/10 text-white border border-whale-500/30 shadow-sm shadow-whale-500/10"
+                  : "text-dark-400 hover:text-white hover:bg-dark-700/40 border border-transparent"
+                }
+              `}
             >
-              {item.icon}
-              <span className="font-medium">{item.name}</span>
+              <span className={`transition-colors duration-200 ${isActive ? "text-whale-400" : "text-dark-500 group-hover:text-dark-200"}`}>
+                {item.icon}
+              </span>
+              <span>{item.name}</span>
+              {isActive && (
+                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-whale-400" />
+              )}
             </Link>
           );
         })}
       </nav>
 
-      {/* Bottom section */}
-      <div className="px-4 py-4 border-t border-dark-700/50">
-        <div className="glass-card p-3">
-          <div className="flex items-center gap-2 mb-2">
+      {/* Bottom status */}
+      <div className="px-4 py-4 border-t border-dark-700/40">
+        <div className="bg-dark-800/80 border border-dark-700/40 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-1.5">
             <div className="w-2 h-2 rounded-full bg-accent-emerald animate-pulse" />
-            <span className="text-xs font-medium text-accent-emerald">System Online</span>
+            <span className="text-xs font-semibold text-accent-emerald">Scanner Active</span>
           </div>
-          <p className="text-xs text-dark-400">Tracking 142 wallets</p>
+          <p className="text-[11px] text-dark-500">Monitoring 142 wallets in real-time</p>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile hamburger */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-dark-800/90 border border-dark-700/50 lg:hidden"
+        aria-label="Open menu"
+      >
+        <svg className="w-5 h-5 text-dark-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile sidebar */}
+      <aside
+        className={`
+          fixed left-0 top-0 z-50 h-screen w-64 bg-dark-900 border-r border-dark-700/50 flex flex-col
+          transition-transform duration-300 ease-out lg:hidden
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
+        `}
+      >
+        {/* Close button */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-dark-700/50 text-dark-400 hover:text-white transition-colors"
+          aria-label="Close menu"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        {sidebarContent}
+      </aside>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex fixed left-0 top-0 z-40 h-screen w-64 bg-dark-900/95 backdrop-blur-xl border-r border-dark-700/50 flex-col">
+        {sidebarContent}
+      </aside>
+    </>
   );
 }

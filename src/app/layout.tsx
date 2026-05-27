@@ -21,9 +21,9 @@ export default function RootLayout({
       <body className={`${inter.className} bg-dark-950 text-dark-100 antialiased`}>
         <div className="flex min-h-screen">
           <Sidebar />
-          <div className="flex-1 ml-64">
+          <div className="flex-1 lg:ml-64">
             <Topbar />
-            <main className="p-6">{children}</main>
+            <main className="p-4 sm:p-6">{children}</main>
           </div>
         </div>
       </body>
