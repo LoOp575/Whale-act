@@ -7,7 +7,7 @@ export { wallets } from "./wallets";
 export type { WalletData, WalletTag } from "./wallets";
 
 export { activities } from "./activities";
-export type { ActivityData } from "./activities";
+export type { ActivityData, ActivityAction } from "./activities";
 
 export { signals } from "./signals";
 export type { SignalData } from "./signals";
