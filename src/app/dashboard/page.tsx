@@ -1,8 +1,11 @@
+"use client";
+
 import { PageHeader, Card, SignalCard, ActivityFeed, RiskBadge } from "@/components/ui";
-import { activities, signals, wallets } from "@/lib/mock-data";
+import { activities, signals as mockSignals, wallets as mockWallets } from "@/lib/mock-data";
+import type { WalletData, SignalData } from "@/lib/mock-data";
+import { useApi } from "@/lib/hooks/useApi";
 import { ReactNode } from "react";
 
-// Dashboard stat card data
 const stats: { label: string; value: string; change: string; changeType: "positive" | "negative" | "neutral"; icon: ReactNode; accentColor: string; bgColor: string }[] = [
   {
     label: "Wallets Tracked",
@@ -52,7 +55,12 @@ const stats: { label: string; value: string; change: string; changeType: "positi
 ];
 
 export default function DashboardPage() {
-  const topWalletsToday = [...wallets].sort((a, b) => b.roi24h - a.roi24h).slice(0, 5);
+  const { data: wallets } = useApi<WalletData[]>("/api/wallets?sort=roi24h", mockWallets);
+  const { data: signals } = useApi<SignalData[]>("/api/signals?limit=5", mockSignals);
+
+  const allWallets = wallets || mockWallets;
+  const allSignals = signals || mockSignals;
+  const topWalletsToday = [...allWallets].sort((a, b) => b.roi24h - a.roi24h).slice(0, 5);
 
   return (
     <div className="space-y-8">
@@ -84,7 +92,7 @@ export default function DashboardPage() {
             <a href="/ai-signals" className="text-xs text-whale-400 hover:text-whale-300 transition-colors font-medium">View all</a>
           </div>
           <div className="space-y-3">
-            {signals.slice(0, 5).map((signal) => (
+            {allSignals.slice(0, 5).map((signal) => (
               <SignalCard key={signal.id} signal={signal} compact />
             ))}
           </div>

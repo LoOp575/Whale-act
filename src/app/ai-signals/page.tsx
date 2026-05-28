@@ -1,7 +1,15 @@
+"use client";
+
 import { PageHeader, SignalCard } from "@/components/ui";
-import { signals } from "@/lib/mock-data";
+import { signals as mockSignals } from "@/lib/mock-data";
+import type { SignalData } from "@/lib/mock-data";
+import { useApi } from "@/lib/hooks/useApi";
 
 export default function AISignalsPage() {
+  const { data: signals, loading } = useApi<SignalData[]>("/api/signals", mockSignals);
+
+  const allSignals = signals || mockSignals;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -17,11 +25,17 @@ export default function AISignalsPage() {
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {signals.map((signal) => (
-          <SignalCard key={signal.id} signal={signal} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-6 h-6 border-2 border-whale-500/30 border-t-whale-500 rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {allSignals.map((signal) => (
+            <SignalCard key={signal.id} signal={signal} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

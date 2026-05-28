@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { PageHeader, Button, WalletTable } from "@/components/ui";
-import { wallets } from "@/lib/mock-data";
-import type { WalletTag } from "@/lib/mock-data";
+import { wallets as mockWallets } from "@/lib/mock-data";
+import type { WalletData, WalletTag } from "@/lib/mock-data";
+import { useApi } from "@/lib/hooks/useApi";
 
 type FilterType = "all" | WalletTag;
 
@@ -17,11 +18,14 @@ const FILTERS: { key: FilterType; label: string }[] = [
 
 export default function TopWalletsPage() {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const { data: wallets, loading } = useApi<WalletData[]>("/api/wallets", mockWallets);
+
+  const allWallets = wallets || mockWallets;
 
   const filteredWallets =
     activeFilter === "all"
-      ? wallets
-      : wallets.filter((w) => w.tag === activeFilter);
+      ? allWallets
+      : allWallets.filter((w) => w.tag === activeFilter);
 
   return (
     <div className="space-y-6">
@@ -46,7 +50,7 @@ export default function TopWalletsPage() {
             {filter.label}
             {filter.key !== "all" && (
               <span className="ml-1.5 text-xs text-dark-500">
-                ({wallets.filter((w) => w.tag === filter.key).length})
+                ({allWallets.filter((w) => w.tag === filter.key).length})
               </span>
             )}
           </button>
@@ -57,9 +61,15 @@ export default function TopWalletsPage() {
         Showing <span className="text-dark-300 font-medium">{filteredWallets.length}</span> wallets
       </p>
 
-      <WalletTable wallets={filteredWallets} />
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-6 h-6 border-2 border-whale-500/30 border-t-whale-500 rounded-full animate-spin" />
+        </div>
+      ) : (
+        <WalletTable wallets={filteredWallets} />
+      )}
 
-      {filteredWallets.length === 0 && (
+      {!loading && filteredWallets.length === 0 && (
         <div className="text-center py-12">
           <p className="text-dark-400 text-sm">No wallets match this filter.</p>
         </div>
