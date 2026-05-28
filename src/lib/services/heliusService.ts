@@ -3,7 +3,7 @@
 // WhaleCopy AI — No sending transactions. No private keys.
 // ============================================================
 
-import { wallets, activities } from "@/lib/mock-data";
+import { wallets } from "@/lib/mock-data";
 import type { WalletData } from "@/lib/mock-data";
 import { serverConfig, isApiConfigured } from "@/lib/config";
 

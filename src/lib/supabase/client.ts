@@ -3,7 +3,7 @@
 // Uses ONLY public keys — safe for frontend
 // ============================================================
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+type SupabaseClient = any; // Avoids hard dependency when package not installed
 
 let supabaseClient: SupabaseClient | null = null;
 
@@ -26,8 +26,14 @@ export function getSupabaseClient(): SupabaseClient | null {
     return null;
   }
 
-  supabaseClient = createClient(url, key);
-  return supabaseClient;
+  try {
+    const { createClient } = require("@supabase/supabase-js");
+    supabaseClient = createClient(url, key);
+    return supabaseClient;
+  } catch {
+    console.warn("[WhaleCopy] @supabase/supabase-js not installed. Using mock data.");
+    return null;
+  }
 }
 
 /**

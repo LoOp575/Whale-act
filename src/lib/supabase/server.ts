@@ -3,7 +3,7 @@
 // Uses SERVICE_ROLE_KEY — NEVER import this in client components
 // ============================================================
 
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+type SupabaseClient = any; // Avoids hard dependency when package not installed
 
 let supabaseAdmin: SupabaseClient | null = null;
 
@@ -33,14 +33,19 @@ export function getSupabaseAdmin(): SupabaseClient | null {
     return null;
   }
 
-  supabaseAdmin = createClient(url, serviceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  return supabaseAdmin;
+  try {
+    const { createClient } = require("@supabase/supabase-js");
+    supabaseAdmin = createClient(url, serviceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+    return supabaseAdmin;
+  } catch {
+    console.warn("[WhaleCopy Server] @supabase/supabase-js not installed. Using mock data.");
+    return null;
+  }
 }
 
 /**

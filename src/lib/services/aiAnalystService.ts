@@ -6,7 +6,7 @@
 import { serverConfig, isAiConfigured } from "@/lib/config";
 import type { WalletScoringInput, WalletScoringResult } from "@/lib/engines/walletScoringEngine";
 import type { TokenRiskResult } from "@/lib/engines/tokenRiskEngine";
-import type { TokenMarketData } from "@/lib/services/dexScreenerService";
+import type { TokenMarketData } from "./dexScreenerService";
 import type { SignalData } from "@/lib/mock-data";
 
 // ---- Allowed Actions (Paper Only) ----
