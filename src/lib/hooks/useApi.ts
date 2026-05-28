@@ -6,48 +6,54 @@ interface UseApiResult<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
+  source: string | null;
 }
 
-/**
- * Simple hook to fetch from internal API with fallback to mock data.
- * If API fails, returns fallbackData instead of crashing.
- */
 export function useApi<T>(url: string, fallbackData: T): UseApiResult<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchData() {
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, { cache: "no-store" });
         const json = await res.json();
 
-        if (!cancelled) {
-          if (json.success && json.data) {
-            setData(json.data);
-          } else {
-            // API returned but no valid data — use fallback
-            setData(fallbackData);
-          }
+        if (cancelled) return;
+
+        if (!res.ok || !json.success) {
+          setData(fallbackData);
+          setError(json.message || json.error || "API request failed");
+          setSource(json.source || "error");
           setLoading(false);
+          return;
         }
-      } catch {
-        // Network error or API unreachable — use fallback
+
+        const payload = json.data ?? json.rows ?? fallbackData;
+        setData(payload);
+        setError(null);
+        setSource(json.source || "api");
+        setLoading(false);
+      } catch (err) {
         if (!cancelled) {
           setData(fallbackData);
-          setError("API unavailable — showing cached data");
+          setError(err instanceof Error ? err.message : "API unavailable");
+          setSource("network-error");
           setLoading(false);
         }
       }
     }
 
     fetchData();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
-  return { data, loading, error };
+  return { data, loading, error, source };
 }
