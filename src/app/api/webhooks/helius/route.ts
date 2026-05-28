@@ -28,12 +28,7 @@ function extractToken(event: any): { tokenAddress: string | null; tokenSymbol: s
   const nativeTransfer = Array.isArray(event?.nativeTransfers) ? event.nativeTransfers[0] : null;
 
   return {
-    tokenAddress: firstString(
-      event?.tokenAddress,
-      event?.mint,
-      tokenTransfer?.mint,
-      nativeTransfer?.mint
-    ),
+    tokenAddress: firstString(event?.tokenAddress, event?.mint, tokenTransfer?.mint, nativeTransfer?.mint),
     tokenSymbol: firstString(event?.tokenSymbol, event?.symbol) || "UNKNOWN",
   };
 }
@@ -58,6 +53,10 @@ function extractWallet(event: any): string | null {
 function amountUsd(event: any): number {
   const value = Number(event?.amountUsd || event?.valueUsd || event?.usdAmount || 0);
   return Number.isFinite(value) ? value : 0;
+}
+
+function uniqueWallets(activities: Array<{ wallet_address: string | null }>) {
+  return Array.from(new Set(activities.map((activity) => activity.wallet_address).filter(Boolean))) as string[];
 }
 
 export async function GET(request: NextRequest) {
@@ -117,11 +116,33 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase.from("live_activities").insert(activities);
     if (error) throw error;
 
+    const walletRows = uniqueWallets(activities).map((address) => ({
+      address,
+      chain: "solana",
+      status: "WATCHLIST",
+      notes: "Real wallet detected from Helius webhook.",
+      roi_24h: 0,
+      realized_pnl_24h: 0,
+      winrate_24h: 0,
+      winrate_7d: 0,
+      trade_count_24h: activities.filter((activity) => activity.wallet_address === address).length,
+      avg_hold_minutes: 0,
+      copy_score: 0,
+      risk_score: 50,
+    }));
+
+    if (walletRows.length > 0) {
+      const { error: walletError } = await supabase
+        .from("wallets")
+        .upsert(walletRows, { onConflict: "address" });
+      if (walletError) throw walletError;
+    }
+
     await supabase.from("agent_logs").insert({
       agent_name: "helius_webhook",
       action: "receive_webhook",
       input_summary: `${events.length} event(s) received`,
-      output_summary: `${activities.length} live activity row(s) saved`,
+      output_summary: `${activities.length} live activity row(s) saved and ${walletRows.length} wallet row(s) upserted`,
       level: "info",
     });
 
@@ -129,6 +150,7 @@ export async function POST(request: NextRequest) {
       success: true,
       received: events.length,
       saved: activities.length,
+      walletsUpserted: walletRows.length,
       message: "Webhook received and saved to Supabase",
       timestamp: new Date().toISOString(),
     });
