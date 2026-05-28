@@ -37,3 +37,16 @@ export {
   checkStopLossTP,
   autoCopyTrade,
 } from "./paperTradingService";
+
+export {
+  explainWalletScore,
+  explainTokenRisk,
+  explainSignal,
+} from "./aiAnalystService";
+
+export type {
+  SuggestedAction,
+  WalletExplanation,
+  TokenRiskExplanation,
+  SignalExplanation,
+} from "./aiAnalystService";
