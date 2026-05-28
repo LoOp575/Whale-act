@@ -23,6 +23,11 @@ export const serverConfig = {
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   heliusApiKey: process.env.HELIUS_API_KEY || "",
   openaiApiKey: process.env.OPENAI_API_KEY || "",
+  openaiBaseUrl: process.env.OPENAI_BASE_URL || "", // empty = default provider
+  openaiModel: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  openaiTemperature: parseFloat(process.env.OPENAI_TEMPERATURE || "0.3"),
+  openaiMaxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || "300", 10),
+  aiProvider: process.env.AI_PROVIDER || "openai-compatible",
 };
 
 /**
@@ -41,4 +46,12 @@ export function isApiConfigured(): boolean {
  */
 export function isAiConfigured(): boolean {
   return !!process.env.OPENAI_API_KEY;
+}
+
+/**
+ * Get the AI base URL (supports OpenAI-compatible providers like Aixchia)
+ * Falls back to official OpenAI endpoint if OPENAI_BASE_URL not set.
+ */
+export function getAiBaseUrl(): string {
+  return process.env.OPENAI_BASE_URL || "https://api.openai.com";
 }

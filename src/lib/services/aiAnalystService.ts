@@ -1,9 +1,10 @@
 // ============================================================
 // AI Analyst Service — Explains scoring results in natural language
 // WhaleCopy AI — Read-only analysis. No trading execution.
+// Supports OpenAI-compatible providers (OpenAI, Aixchia, etc.)
 // ============================================================
 
-import { serverConfig, isAiConfigured } from "@/lib/config";
+import { serverConfig, isAiConfigured, getAiBaseUrl } from "@/lib/config";
 import type { WalletScoringInput, WalletScoringResult } from "@/lib/engines/walletScoringEngine";
 import type { TokenRiskResult } from "@/lib/engines/tokenRiskEngine";
 import type { TokenMarketData } from "./dexScreenerService";
@@ -36,44 +37,66 @@ export interface SignalExplanation {
   suggestedAction: SuggestedAction;
 }
 
-// ---- OpenAI Helper (Server-Only) ----
+// ---- OpenAI-Compatible Client (Server-Only) ----
 
 /**
- * Call OpenAI for natural language explanation.
- * ONLY runs server-side. Never exposes API key.
- * Never sends private keys or wallet secrets.
+ * Call any OpenAI-compatible Chat Completions API.
+ * Supports: OpenAI, Aixchia, Azure, local LLMs, etc.
+ *
+ * Uses:
+ * - OPENAI_BASE_URL: custom endpoint (or default OpenAI)
+ * - OPENAI_API_KEY: server-side only
+ * - OPENAI_MODEL: configurable model name
+ * - OPENAI_TEMPERATURE: response creativity
+ * - OPENAI_MAX_TOKENS: response length limit
+ *
+ * NEVER sends: private keys, wallet seeds, real funds info.
  */
-async function callOpenAI(systemPrompt: string, userPrompt: string): Promise<string | null> {
-  if (!isAiConfigured()) return null;
+async function callChatCompletion(
+  systemPrompt: string,
+  userPrompt: string
+): Promise<{ content: string | null; error: string | null }> {
+  if (!isAiConfigured()) {
+    return { content: null, error: "OPENAI_API_KEY not configured" };
+  }
+
+  const baseUrl = getAiBaseUrl();
+  const endpoint = `${baseUrl}/v1/chat/completions`;
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${serverConfig.openaiApiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: serverConfig.openaiModel,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 300,
-        temperature: 0.3,
+        max_tokens: serverConfig.openaiMaxTokens,
+        temperature: serverConfig.openaiTemperature,
       }),
     });
 
     if (!response.ok) {
-      console.warn(`[AI Analyst] OpenAI returned ${response.status}`);
-      return null;
+      const errText = await response.text().catch(() => "Unknown");
+      return { content: null, error: `AI provider returned ${response.status}: ${errText.slice(0, 100)}` };
     }
 
     const json = await response.json();
-    return json.choices?.[0]?.message?.content?.trim() || null;
+    const content = json.choices?.[0]?.message?.content?.trim() || null;
+
+    if (!content) {
+      return { content: null, error: "AI returned empty response" };
+    }
+
+    return { content, error: null };
   } catch (error) {
-    console.error("[AI Analyst] OpenAI call failed:", error);
-    return null;
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    return { content: null, error: `AI call failed: ${msg}` };
   }
 }
 
@@ -88,6 +111,17 @@ Tugasmu HANYA menjelaskan dan merangkum data scoring. Kamu TIDAK boleh:
 Suggested action yang diperbolehkan HANYA: WATCH, PAPER_BUY, PAPER_EXIT, REJECT, WAIT.
 Jawab dalam bahasa Indonesia yang singkat dan jelas. Max 3 kalimat per section.`;
 
+// ---- Agent Log Helper ----
+
+function createErrorLog(action: string, error: string) {
+  return {
+    agentName: "ai_analyst",
+    action,
+    error,
+    timestamp: new Date().toISOString(),
+  };
+}
+
 // ---- Service Functions ----
 
 /**
@@ -97,9 +131,8 @@ Jawab dalam bahasa Indonesia yang singkat dan jelas. Max 3 kalimat per section.`
 export async function explainWalletScore(
   walletData: Partial<WalletScoringInput> & { label?: string; address?: string },
   scoreResult: WalletScoringResult
-): Promise<WalletExplanation> {
-  // Try AI explanation
-  const aiResponse = await callOpenAI(
+): Promise<WalletExplanation & { agentLog?: ReturnType<typeof createErrorLog> }> {
+  const { content, error } = await callChatCompletion(
     SYSTEM_PROMPT_BASE,
     `Jelaskan hasil scoring wallet ini untuk paper trading:
 Wallet: ${walletData.label || walletData.address || "Unknown"}
@@ -114,12 +147,13 @@ Reasons dari engine: ${scoreResult.reasons.join("; ")}
 Berikan: 1) summary singkat, 2) detailed reason, 3) risk note, 4) suggested action (WATCH/PAPER_BUY/PAPER_EXIT/REJECT/WAIT)`
   );
 
-  if (aiResponse) {
-    return parseAiWalletResponse(aiResponse, scoreResult);
+  if (content) {
+    return parseAiWalletResponse(content, scoreResult);
   }
 
-  // Fallback: rule-based explanation
-  return generateFallbackWalletExplanation(walletData, scoreResult);
+  // Fallback + log error
+  const fallback = generateFallbackWalletExplanation(walletData, scoreResult);
+  return { ...fallback, agentLog: error ? createErrorLog("explain_wallet_score", error) : undefined };
 }
 
 /**
@@ -128,8 +162,8 @@ Berikan: 1) summary singkat, 2) detailed reason, 3) risk note, 4) suggested acti
 export async function explainTokenRisk(
   tokenData: Partial<TokenMarketData>,
   riskResult: TokenRiskResult
-): Promise<TokenRiskExplanation> {
-  const aiResponse = await callOpenAI(
+): Promise<TokenRiskExplanation & { agentLog?: ReturnType<typeof createErrorLog> }> {
+  const { content, error } = await callChatCompletion(
     SYSTEM_PROMPT_BASE,
     `Jelaskan hasil risk assessment token ini:
 Token: ${tokenData.symbol || "Unknown"} (${tokenData.tokenAddress || "?"})
@@ -144,11 +178,12 @@ Reasons dari engine: ${riskResult.reasons.join("; ")}
 Berikan: 1) summary, 2) detailed reason, 3) risk note, 4) suggested action (WATCH/PAPER_BUY/PAPER_EXIT/REJECT/WAIT)`
   );
 
-  if (aiResponse) {
-    return parseAiTokenResponse(aiResponse, riskResult);
+  if (content) {
+    return parseAiTokenResponse(content, riskResult);
   }
 
-  return generateFallbackTokenExplanation(tokenData, riskResult);
+  const fallback = generateFallbackTokenExplanation(tokenData, riskResult);
+  return { ...fallback, agentLog: error ? createErrorLog("explain_token_risk", error) : undefined };
 }
 
 /**
@@ -156,8 +191,8 @@ Berikan: 1) summary, 2) detailed reason, 3) risk note, 4) suggested action (WATC
  */
 export async function explainSignal(
   signalData: SignalData
-): Promise<SignalExplanation> {
-  const aiResponse = await callOpenAI(
+): Promise<SignalExplanation & { agentLog?: ReturnType<typeof createErrorLog> }> {
+  const { content, error } = await callChatCompletion(
     SYSTEM_PROMPT_BASE,
     `Jelaskan signal trading ini untuk paper trading:
 Token: ${signalData.token}
@@ -171,11 +206,12 @@ Price 24h: ${signalData.priceChange24h}%
 Berikan penjelasan ulang yang lebih jelas: 1) summary, 2) detailed reason, 3) risk note, 4) suggested action (WATCH/PAPER_BUY/PAPER_EXIT/REJECT/WAIT)`
   );
 
-  if (aiResponse) {
-    return parseAiSignalResponse(aiResponse, signalData);
+  if (content) {
+    return parseAiSignalResponse(content, signalData);
   }
 
-  return generateFallbackSignalExplanation(signalData);
+  const fallback = generateFallbackSignalExplanation(signalData);
+  return { ...fallback, agentLog: error ? createErrorLog("explain_signal", error) : undefined };
 }
 
 // ---- Fallback Generators (No AI Needed) ----
@@ -208,9 +244,7 @@ function generateFallbackWalletExplanation(
 
   return {
     summary,
-    detailedReason: reasons.length > 0
-      ? reasons.join(". ") + "."
-      : "Tidak ada detail tambahan dari scoring engine.",
+    detailedReason: reasons.length > 0 ? reasons.join(". ") + "." : "Tidak ada detail tambahan dari scoring engine.",
     riskNote: copyScore < 40
       ? "Score rendah — jangan copy wallet ini untuk paper trading."
       : copyScore < 70
@@ -245,9 +279,7 @@ function generateFallbackTokenExplanation(
 
   return {
     summary,
-    detailedReason: reasons.length > 0
-      ? reasons.join(". ") + "."
-      : "Token memiliki parameter pasar yang normal.",
+    detailedReason: reasons.length > 0 ? reasons.join(". ") + "." : "Token memiliki parameter pasar yang normal.",
     riskNote: riskScore >= 70
       ? "SANGAT BERISIKO — jangan entry bahkan paper trade."
       : riskScore >= 45
@@ -259,26 +291,16 @@ function generateFallbackTokenExplanation(
   };
 }
 
-function generateFallbackSignalExplanation(
-  signalData: SignalData
-): SignalExplanation {
+function generateFallbackSignalExplanation(signalData: SignalData): SignalExplanation {
   let suggestedAction: SuggestedAction;
 
   switch (signalData.type) {
-    case "BUY":
-      suggestedAction = "PAPER_BUY";
-      break;
-    case "EXIT":
-      suggestedAction = "PAPER_EXIT";
-      break;
+    case "BUY": suggestedAction = "PAPER_BUY"; break;
+    case "EXIT": suggestedAction = "PAPER_EXIT"; break;
     case "REJECT":
-    case "WARNING":
-      suggestedAction = "REJECT";
-      break;
+    case "WARNING": suggestedAction = "REJECT"; break;
     case "WAIT":
-    default:
-      suggestedAction = "WAIT";
-      break;
+    default: suggestedAction = "WAIT"; break;
   }
 
   return {
@@ -292,7 +314,6 @@ function generateFallbackSignalExplanation(
 // ---- AI Response Parsers ----
 
 function parseAiWalletResponse(aiText: string, scoreResult: WalletScoringResult): WalletExplanation {
-  // Simple parsing — AI might not follow format perfectly
   const action = extractAction(aiText);
   return {
     summary: extractSection(aiText, "summary") || `Score: ${scoreResult.copyScore}/100, Status: ${scoreResult.status}`,
