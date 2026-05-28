@@ -1,6 +1,6 @@
 // ============================================================
 // API Route: /api/wallets
-// WhaleCopy AI — Returns wallet data from mock/database
+// WhaleCopy AI — Returns wallet data from database with mock fallback
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,40 +8,83 @@ import { wallets } from "@/lib/mock-data";
 import type { WalletData } from "@/lib/mock-data";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
-/**
- * GET /api/wallets
- * Returns list of tracked wallets.
- * Query params: ?tag=good&sort=roi24h
- */
+type DbWallet = {
+  id: string;
+  address: string;
+  roi_24h: number | string | null;
+  realized_pnl_24h: number | string | null;
+  winrate_24h: number | string | null;
+  winrate_7d: number | string | null;
+  trade_count_24h: number | string | null;
+  avg_hold_minutes: number | string | null;
+  copy_score: number | string | null;
+  risk_score: number | string | null;
+  status: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+function toNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function shortAddress(address: string): string {
+  return address.length > 12 ? `${address.slice(0, 4)}...${address.slice(-4)}` : address;
+}
+
+function mapDbWallet(row: DbWallet): WalletData {
+  const status = (row.status || "NEUTRAL").toLowerCase();
+  const riskScore = toNumber(row.risk_score);
+
+  return {
+    id: row.id || row.address,
+    address: shortAddress(row.address),
+    label: row.notes || shortAddress(row.address),
+    roi24h: toNumber(row.roi_24h),
+    realizedPnl: toNumber(row.realized_pnl_24h),
+    winRate: toNumber(row.winrate_7d || row.winrate_24h),
+    totalTrades: toNumber(row.trade_count_24h),
+    avgHoldTime: `${toNumber(row.avg_hold_minutes)}m`,
+    copyScore: toNumber(row.copy_score),
+    status: status === "rejected" ? "inactive" : status === "neutral" ? "new" : "active",
+    tag: status === "watchlist" || status === "testing" || status === "good" || status === "rejected" ? status : "neutral",
+    isTracked: status !== "rejected",
+    riskScore: riskScore <= 35 ? "Low" : riskScore <= 65 ? "Medium" : "High",
+    lastActive: row.updated_at || row.created_at ? "synced" : "unknown",
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const tag = searchParams.get("tag");
     const sort = searchParams.get("sort") || "roi24h";
 
-    // Try Supabase first, fallback to mock
     const supabase = getSupabaseAdmin();
-    let data: WalletData[];
+    let data: WalletData[] = wallets;
+    let source = "mock";
 
     if (supabase) {
-      // TODO: replace with real Supabase query when DB is seeded
-      // const { data: rows, error } = await supabase
-      //   .from("wallets")
-      //   .select("*")
-      //   .order("roi_24h", { ascending: false });
-      // if (error) throw error;
-      // data = rows;
-      data = wallets;
-    } else {
-      data = wallets;
+      const { data: rows, error } = await supabase
+        .from("wallets")
+        .select("*")
+        .order("copy_score", { ascending: false });
+
+      if (error) throw error;
+
+      const mapped = ((rows || []) as DbWallet[]).map(mapDbWallet);
+      if (mapped.length > 0) {
+        data = mapped;
+        source = "database";
+      }
     }
 
-    // Filter by tag
     if (tag && tag !== "all") {
       data = data.filter((w) => w.tag === tag);
     }
 
-    // Sort
     if (sort === "roi24h") {
       data = [...data].sort((a, b) => b.roi24h - a.roi24h);
     } else if (sort === "copyScore") {
@@ -54,7 +97,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data,
       count: data.length,
-      source: supabase ? "database" : "mock",
+      source,
     });
   } catch (error) {
     return NextResponse.json(
@@ -68,11 +111,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/**
- * POST /api/wallets
- * Add a new wallet to tracking list.
- * Body: { address: string, label?: string }
- */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -85,8 +123,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: validate Solana address format
-    // TODO: insert into Supabase when configured
+    const supabase = getSupabaseAdmin();
+
+    if (supabase) {
+      const { data: row, error } = await supabase
+        .from("wallets")
+        .upsert(
+          {
+            address,
+            chain: "solana",
+            status: "WATCHLIST",
+            notes: label || shortAddress(address),
+          },
+          { onConflict: "address" }
+        )
+        .select("*")
+        .single();
+
+      if (error) throw error;
+
+      return NextResponse.json({
+        success: true,
+        data: mapDbWallet(row as DbWallet),
+        message: "Wallet saved to database",
+        source: "database",
+      });
+    }
 
     const newWallet: WalletData = {
       id: `w_${Date.now()}`,
@@ -108,7 +170,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: newWallet,
-      message: "Wallet added to tracking (paper mode)",
+      message: "Wallet added to tracking fallback mode",
+      source: "mock",
     });
   } catch (error) {
     return NextResponse.json(
