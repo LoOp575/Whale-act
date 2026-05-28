@@ -77,17 +77,20 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      data: activities.length ? activities : mockActivities,
-      count: activities.length || mockActivities.length,
-      source: activities.length ? "supabase" : "mock",
+      data: activities,
+      count: activities.length,
+      source: "supabase",
     });
   } catch (error) {
-    return NextResponse.json({
-      success: true,
-      data: mockActivities,
-      count: mockActivities.length,
-      source: "mock",
-      warning: error instanceof Error ? error.message : "Supabase unavailable",
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        data: [],
+        count: 0,
+        source: "supabase-error",
+        message: error instanceof Error ? error.message : "Supabase unavailable",
+      },
+      { status: 500 }
+    );
   }
 }
