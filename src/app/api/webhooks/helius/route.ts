@@ -1,26 +1,68 @@
-// ============================================================
-// API Route: /api/webhooks/helius
-// WhaleCopy AI — Receives Helius webhook events (read-only)
-// No live trading. No private keys. Paper trading only.
-// ============================================================
-
 import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
 
-/**
- * GET /api/webhooks/helius
- * Health check / browser test endpoint.
- */
-export async function GET(request: NextRequest) {
+function isAuthorized(request: NextRequest): boolean {
   const { searchParams } = new URL(request.url);
   const secret = searchParams.get("secret");
   const expectedSecret = process.env.HELIUS_WEBHOOK_SECRET;
+  return !expectedSecret || secret === expectedSecret;
+}
 
-  // If secret is configured, validate it
-  if (expectedSecret && secret !== expectedSecret) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return null;
+}
+
+function detectAction(event: any): string {
+  const type = String(event?.type || event?.transactionType || event?.description || "unknown").toLowerCase();
+  if (type.includes("swap") || type.includes("buy")) return "buy";
+  if (type.includes("sell")) return "sell";
+  if (type.includes("transfer")) return "transfer";
+  return "unknown";
+}
+
+function extractToken(event: any): { tokenAddress: string | null; tokenSymbol: string | null } {
+  const tokenTransfer = Array.isArray(event?.tokenTransfers) ? event.tokenTransfers[0] : null;
+  const nativeTransfer = Array.isArray(event?.nativeTransfers) ? event.nativeTransfers[0] : null;
+
+  return {
+    tokenAddress: firstString(
+      event?.tokenAddress,
+      event?.mint,
+      tokenTransfer?.mint,
+      nativeTransfer?.mint
+    ),
+    tokenSymbol: firstString(event?.tokenSymbol, event?.symbol) || "UNKNOWN",
+  };
+}
+
+function extractWallet(event: any): string | null {
+  const accountData = Array.isArray(event?.accountData) ? event.accountData[0] : null;
+  const tokenTransfer = Array.isArray(event?.tokenTransfers) ? event.tokenTransfers[0] : null;
+  const nativeTransfer = Array.isArray(event?.nativeTransfers) ? event.nativeTransfers[0] : null;
+
+  return firstString(
+    event?.feePayer,
+    event?.walletAddress,
+    event?.source,
+    accountData?.account,
+    tokenTransfer?.fromUserAccount,
+    tokenTransfer?.toUserAccount,
+    nativeTransfer?.fromUserAccount,
+    nativeTransfer?.toUserAccount
+  );
+}
+
+function amountUsd(event: any): number {
+  const value = Number(event?.amountUsd || event?.valueUsd || event?.usdAmount || 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+export async function GET(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
   return NextResponse.json({
@@ -31,41 +73,63 @@ export async function GET(request: NextRequest) {
   });
 }
 
-/**
- * POST /api/webhooks/helius
- * Receives webhook events from Helius.
- * Validates secret, parses transaction data.
- * Does NOT execute any trades — only logs and processes for signals.
- */
 export async function POST(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
-    // Validate webhook secret
-    const { searchParams } = new URL(request.url);
-    const secret = searchParams.get("secret");
-    const expectedSecret = process.env.HELIUS_WEBHOOK_SECRET;
-
-    if (expectedSecret && secret !== expectedSecret) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized — invalid webhook secret" },
-        { status: 401 }
-      );
-    }
-
-    // Parse webhook payload
     const body = await request.json();
     const events = Array.isArray(body) ? body : [body];
+    const supabase = getSupabaseAdmin();
 
-    // TODO: Process webhook events
-    // 1. Parse transaction data
-    // 2. Detect buy/sell events from tracked wallets
-    // 3. Feed into Signal Generator Agent
-    // 4. Store in database (agent_logs / wallet_trades)
-    // No live trading — only signal generation for paper mode
+    if (!supabase) {
+      return NextResponse.json({
+        success: true,
+        received: events.length,
+        saved: 0,
+        source: "no-supabase",
+        message: "Webhook received but Supabase is not configured",
+      });
+    }
+
+    const activities = events.map((event: any) => {
+      const walletAddress = extractWallet(event);
+      const token = extractToken(event);
+      const action = detectAction(event);
+      const txHash = firstString(event?.signature, event?.transactionHash, event?.txHash);
+      const description = firstString(event?.description) || `Helius ${action} event received`;
+
+      return {
+        wallet_address: walletAddress,
+        token_address: token.tokenAddress,
+        token_symbol: token.tokenSymbol,
+        action,
+        amount_usd: amountUsd(event),
+        tx_hash: txHash,
+        description,
+        source: "helius",
+        raw_summary: description,
+        raw_payload: event,
+      };
+    });
+
+    const { error } = await supabase.from("live_activities").insert(activities);
+    if (error) throw error;
+
+    await supabase.from("agent_logs").insert({
+      agent_name: "helius_webhook",
+      action: "receive_webhook",
+      input_summary: `${events.length} event(s) received`,
+      output_summary: `${activities.length} live activity row(s) saved`,
+      level: "info",
+    });
 
     return NextResponse.json({
       success: true,
       received: events.length,
-      message: "Webhook received (paper trading mode — no execution)",
+      saved: activities.length,
+      message: "Webhook received and saved to Supabase",
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
