@@ -1,7 +1,14 @@
+"use client";
+
 import { PageHeader, ActivityFeed } from "@/components/ui";
-import { activities } from "@/lib/mock-data";
+import { activities as mockActivities } from "@/lib/mock-data";
+import type { ActivityData } from "@/lib/mock-data";
+import { useApi } from "@/lib/hooks/useApi";
 
 export default function LiveActivityPage() {
+  const { data: activities } = useApi<ActivityData[]>("/api/live-activities", mockActivities);
+  const allActivities = activities || mockActivities;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -15,7 +22,7 @@ export default function LiveActivityPage() {
         }
       />
 
-      <ActivityFeed activities={activities} />
+      <ActivityFeed activities={allActivities} />
 
       <div className="flex items-center gap-3 justify-center py-4">
         <div className="h-px flex-1 bg-dark-700/30" />
