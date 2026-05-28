@@ -8,6 +8,16 @@ export {
   fetchWalletTransactions,
   fetchWalletBalance,
   subscribeToWallet,
+  parseWalletSwaps,
+  detectBuySellEvents,
+  summarizeWalletActivity,
+} from "./heliusService";
+
+export type {
+  HeliusTransaction,
+  ParsedSwap,
+  BuySellEvent,
+  WalletScanSummary,
 } from "./heliusService";
 
 export {
