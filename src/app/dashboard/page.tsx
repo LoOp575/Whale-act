@@ -1,8 +1,8 @@
 "use client";
 
 import { PageHeader, Card, SignalCard, ActivityFeed, RiskBadge } from "@/components/ui";
-import { activities, signals as mockSignals, wallets as mockWallets } from "@/lib/mock-data";
-import type { WalletData, SignalData } from "@/lib/mock-data";
+import { activities as mockActivities, signals as mockSignals, wallets as mockWallets } from "@/lib/mock-data";
+import type { ActivityData, WalletData, SignalData } from "@/lib/mock-data";
 import { useApi } from "@/lib/hooks/useApi";
 import { ReactNode } from "react";
 
@@ -57,9 +57,11 @@ const stats: { label: string; value: string; change: string; changeType: "positi
 export default function DashboardPage() {
   const { data: wallets } = useApi<WalletData[]>("/api/wallets?sort=roi24h", mockWallets);
   const { data: signals } = useApi<SignalData[]>("/api/signals?limit=5", mockSignals);
+  const { data: activities } = useApi<ActivityData[]>("/api/live-activities", mockActivities);
 
   const allWallets = wallets || mockWallets;
   const allSignals = signals || mockSignals;
+  const allActivities = activities || mockActivities;
   const topWalletsToday = [...allWallets].sort((a, b) => b.roi24h - a.roi24h).slice(0, 5);
 
   return (
@@ -107,7 +109,7 @@ export default function DashboardPage() {
             </div>
             <a href="/live-activity" className="text-xs text-whale-400 hover:text-whale-300 transition-colors font-medium">View all</a>
           </div>
-          <ActivityFeed activities={activities.slice(0, 7)} compact />
+          <ActivityFeed activities={allActivities.slice(0, 7)} compact />
         </Card>
 
         {/* Top Wallets Today */}
