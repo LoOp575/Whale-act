@@ -1,105 +1,84 @@
-// ============================================================
-// API Route: /api/signals
-// WhaleCopy AI — Returns AI signals from mock/database
-// ============================================================
-
 import { NextRequest, NextResponse } from "next/server";
-import { signals } from "@/lib/mock-data";
+import { signals as emptySignals } from "@/lib/mock-data";
 import type { SignalData, SignalType } from "@/lib/mock-data";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
-/**
- * GET /api/signals
- * Returns AI-generated trading signals.
- * Query params: ?type=BUY&limit=10
- */
+type SignalRow = {
+  id?: string;
+  signal_type?: string | null;
+  wallet_address?: string | null;
+  token_address?: string | null;
+  token_symbol?: string | null;
+  confidence?: number | string | null;
+  reason?: string | null;
+  risk_note?: string | null;
+  suggested_action?: string | null;
+  price_change_24h?: number | string | null;
+  volume_24h?: number | string | null;
+  created_at?: string | null;
+};
+
+function toNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function shortAddress(address: string): string {
+  return address.length > 12 ? `${address.slice(0, 4)}...${address.slice(-4)}` : address;
+}
+
+function signalType(value: unknown): SignalType {
+  const type = String(value || "WAIT").toUpperCase();
+  if (type === "BUY" || type === "WAIT" || type === "REJECT" || type === "EXIT" || type === "WARNING") return type as SignalType;
+  return "WAIT";
+}
+
+function mapSignal(row: SignalRow): SignalData {
+  return {
+    id: row.id || `${row.token_symbol || row.token_address || "UNKNOWN"}-${row.created_at || Date.now()}`,
+    token: row.token_symbol || row.token_address || "UNKNOWN",
+    type: signalType(row.signal_type),
+    walletCopied: row.wallet_address ? shortAddress(row.wallet_address) : "Unknown Wallet",
+    confidence: toNumber(row.confidence),
+    reason: row.reason || "Signal generated from live data.",
+    riskNote: row.risk_note || "Paper mode only. Review manually.",
+    suggestedAction: row.suggested_action || "WAIT",
+    priceChange24h: toNumber(row.price_change_24h),
+    volume24h: row.volume_24h ? `$${toNumber(row.volume_24h).toLocaleString()}` : "N/A",
+    timestamp: row.created_at || "synced",
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get("type") as SignalType | null;
-    const limit = parseInt(searchParams.get("limit") || "20", 10);
-
+    const type = searchParams.get("type");
+    const limit = Number(searchParams.get("limit") || 20);
     const supabase = getSupabaseAdmin();
-    let data: SignalData[];
 
-    if (supabase) {
-      // TODO: replace with real Supabase query
-      // const query = supabase.from("signals").select("*").order("created_at", { ascending: false }).limit(limit);
-      // if (type) query.eq("signal_type", type);
-      // const { data: rows, error } = await query;
-      data = signals;
-    } else {
-      data = signals;
+    if (!supabase) {
+      return NextResponse.json({ success: true, data: emptySignals, count: 0, source: "mock" });
     }
 
-    // Filter by type
-    if (type) {
-      data = data.filter((s) => s.type === type);
-    }
+    let query = supabase.from("signals").select("*").order("created_at", { ascending: false }).limit(limit);
+    if (type) query = query.eq("signal_type", type);
 
-    // Limit
-    data = data.slice(0, limit);
+    const { data, error } = await query;
+    if (error) throw error;
 
-    return NextResponse.json({
-      success: true,
-      data,
-      count: data.length,
-      source: supabase ? "database" : "mock",
-    });
+    const mapped = ((data || []) as SignalRow[]).map(mapSignal);
+    return NextResponse.json({ success: true, data: mapped, count: mapped.length, source: "supabase" });
   } catch (error) {
     return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to fetch signals",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
+      { success: false, data: [], count: 0, source: "supabase-error", message: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     );
   }
 }
 
-/**
- * POST /api/signals
- * Manually trigger signal generation (for testing).
- * Body: { walletAddress?: string, tokenAddress?: string }
- */
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { walletAddress, tokenAddress } = body;
-
-    // TODO: implement real AI signal generation
-    // - Call aiSignalService.generateSignals()
-    // - Store in Supabase
-    // - Return new signal
-
-    const mockSignal: SignalData = {
-      id: `s_${Date.now()}`,
-      token: tokenAddress || "UNKNOWN",
-      type: "WAIT",
-      walletCopied: walletAddress || "Unknown Wallet",
-      confidence: 50,
-      reason: "Manual test signal — waiting for real AI integration.",
-      riskNote: "No real analysis performed.",
-      suggestedAction: "Ignore — this is a test signal.",
-      priceChange24h: 0,
-      volume24h: "$0",
-      timestamp: "just now",
-    };
-
-    return NextResponse.json({
-      success: true,
-      data: mockSignal,
-      message: "Test signal created (paper mode only)",
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to create signal",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
-  }
+export async function POST() {
+  return NextResponse.json(
+    { success: false, error: "Use /api/agent/run-signal to generate signals from live data." },
+    { status: 405 }
+  );
 }
