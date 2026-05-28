@@ -337,8 +337,8 @@ function extractAction(text: string): SuggestedAction {
 function extractSection(text: string, section: "summary" | "reason" | "risk"): string | null {
   const patterns: Record<string, RegExp[]> = {
     summary: [/summary[:\s]*(.+?)(?:\n|$)/i, /1\)\s*(.+?)(?:\n|$)/i],
-    reason: [/reason[:\s]*(.+?)(?:\n|risk|$)/is, /2\)\s*(.+?)(?:\n|3\)|$)/is],
-    risk: [/risk[:\s]*(.+?)(?:\n|suggest|action|$)/is, /3\)\s*(.+?)(?:\n|4\)|$)/is],
+    reason: [new RegExp("reason[:\\s]*(.+?)(?:\\n|risk|$)", "i"), new RegExp("2\\)\\s*(.+?)(?:\\n|3\\)|$)", "i")],
+    risk: [new RegExp("risk[:\\s]*(.+?)(?:\\n|suggest|action|$)", "i"), new RegExp("3\\)\\s*(.+?)(?:\\n|4\\)|$)", "i")],
   };
 
   for (const pattern of patterns[section]) {
