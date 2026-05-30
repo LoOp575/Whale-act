@@ -75,14 +75,23 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const q = (searchParams.get("q") || "").trim();
     const profitableOnly = searchParams.get("profitableOnly") === "true";
     const minWinrate = Number(searchParams.get("minWinrate") || 0);
+    const minCopyScore = Number(searchParams.get("minCopyScore") || 0);
+    const maxRiskScore = Number(searchParams.get("maxRiskScore") || 0);
     const limit = Math.min(Number(searchParams.get("limit") || 50), 100);
 
     let query = db.from("wallets").select("*").order("copy_score", { ascending: false }).limit(limit);
-    if (status && status !== "all") query = query.eq("status", status);
+    if (status && status !== "all") query = query.eq("status", status.toUpperCase());
     if (profitableOnly) query = query.gt("realized_pnl_7d", 0);
     if (minWinrate > 0) query = query.gte("winrate_7d", minWinrate);
+    if (minCopyScore > 0) query = query.gte("copy_score", minCopyScore);
+    if (maxRiskScore > 0) query = query.lte("risk_score", maxRiskScore);
+    if (q) {
+      const safeQ = q.replaceAll("%", "").replaceAll(",", " ");
+      query = query.or(`address.ilike.%${safeQ}%,label.ilike.%${safeQ}%,notes.ilike.%${safeQ}%,source.ilike.%${safeQ}%`);
+    }
 
     const { data, error } = await query;
     if (error) throw error;
@@ -106,6 +115,18 @@ export async function POST(request: NextRequest) {
     const address = typeof body.address === "string" ? body.address.trim() : "";
     if (!address) {
       return NextResponse.json({ success: false, error: "Wallet address is required" }, { status: 400 });
+    }
+
+    if (body.action === "updateStatus") {
+      const nextStatus = String(body.status || "CANDIDATE").toUpperCase();
+      const { data, error } = await db
+        .from("wallets")
+        .update({ status: nextStatus, updated_at: new Date().toISOString() })
+        .eq("address", address)
+        .select("*")
+        .single();
+      if (error) throw error;
+      return NextResponse.json({ success: true, data: mapWallet(data as WalletRow), source: "supabase" });
     }
 
     const patch: Record<string, unknown> = {
