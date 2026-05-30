@@ -79,6 +79,16 @@ Tables used:
 - `agent_logs`
 - `settings`
 
+## Debug Status
+
+After deploy, open:
+
+```txt
+/api/debug/status
+```
+
+This endpoint checks Supabase env, Helius env, AI env, agent secret config, and table counts.
+
 ## Add a Real Wallet
 
 Use the app API or insert directly into Supabase.
@@ -120,7 +130,7 @@ curl "https://your-domain.vercel.app/api/agent/full-run?dryRun=true&limitPairs=8
 
 ## Auto Run
 
-`vercel.json` runs `/api/agent/full-run?limitPairs=8&limitWallets=30&txLimit=20` every 10 minutes using Vercel Cron. If `CRON_SECRET` is set, Vercel sends authorization automatically.
+Vercel Hobby/free cannot run frequent cron safely. Run the full agent manually from AI Signals, or use an external cron service later.
 
 ## Run Locally
 
@@ -133,7 +143,7 @@ Open http://localhost:3000.
 
 ## Deployment Trigger
 
-Last redeploy trigger: 2026-05-30.
+Last redeploy trigger: 2026-05-30 debug diagnostics.
 
 ## Important Notes
 
