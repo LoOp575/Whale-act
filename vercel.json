@@ -1,9 +1,3 @@
 {
-  "framework": "nextjs",
-  "crons": [
-    {
-      "path": "/api/agent/full-run?limitPairs=8&limitWallets=30&txLimit=20",
-      "schedule": "*/10 * * * *"
-    }
-  ]
+  "framework": "nextjs"
 }
