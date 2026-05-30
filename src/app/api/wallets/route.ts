@@ -32,6 +32,12 @@ function num(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function optionalNum(value: unknown) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function mapWallet(row: WalletRow) {
   return {
     id: row.id,
@@ -69,10 +75,14 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const profitableOnly = searchParams.get("profitableOnly") === "true";
+    const minWinrate = Number(searchParams.get("minWinrate") || 0);
     const limit = Math.min(Number(searchParams.get("limit") || 50), 100);
 
     let query = db.from("wallets").select("*").order("copy_score", { ascending: false }).limit(limit);
     if (status && status !== "all") query = query.eq("status", status);
+    if (profitableOnly) query = query.gt("realized_pnl_7d", 0);
+    if (minWinrate > 0) query = query.gte("winrate_7d", minWinrate);
 
     const { data, error } = await query;
     if (error) throw error;
@@ -98,17 +108,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Wallet address is required" }, { status: 400 });
     }
 
+    const patch: Record<string, unknown> = {
+      address,
+      chain: body.chain || "solana",
+      label: body.label || null,
+      notes: body.notes || null,
+      status: body.status || "CANDIDATE",
+      source: body.source || "manual",
+      updated_at: new Date().toISOString(),
+    };
+
+    const numericMap: Record<string, string> = {
+      roi24h: "roi_24h",
+      roi7d: "roi_7d",
+      realizedPnl24h: "realized_pnl_24h",
+      realizedPnl7d: "realized_pnl_7d",
+      winrate24h: "winrate_24h",
+      winrate7d: "winrate_7d",
+      avgHoldMinutes: "avg_hold_minutes",
+      copyScore: "copy_score",
+      riskScore: "risk_score",
+      consistencyScore: "consistency_score",
+      exitSpeedScore: "exit_speed_score",
+      tradeCount24h: "trade_count_24h",
+      tradeCount7d: "trade_count_7d",
+    };
+
+    for (const [inputKey, dbKey] of Object.entries(numericMap)) {
+      const value = optionalNum(body[inputKey] ?? body[dbKey]);
+      if (value !== undefined) patch[dbKey] = value;
+    }
+
+    if (body.rawPayload) patch.raw_payload = body.rawPayload;
+    if (body.lastSeenAt || body.last_seen_at) patch.last_seen_at = body.lastSeenAt || body.last_seen_at;
+
     const { data, error } = await db
       .from("wallets")
-      .upsert({
-        address,
-        chain: "solana",
-        label: body.label || null,
-        notes: body.notes || "Manual wallet candidate.",
-        status: body.status || "CANDIDATE",
-        source: "manual",
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "address" })
+      .upsert(patch, { onConflict: "address" })
       .select("*")
       .single();
 
