@@ -56,6 +56,14 @@ const envN = (k: string, d: number) => (Number.isFinite(Number(process.env[k])) 
 const short = (s: string) => (!s ? "UNKNOWN" : s.length <= 12 ? s : `${s.slice(0, 4)}...${s.slice(-4)}`);
 const action = (v: unknown): Activity["action"] => (String(v || "").toUpperCase() === "BUY" ? "BUY" : String(v || "").toUpperCase() === "SELL" ? "SELL" : "TRANSFER");
 
+function getAiConfig() {
+  const apiKey = process.env.AI_API_KEY || process.env.OPENAI_API_KEY || process.env.AICHIXIA_API_KEY || "";
+  const baseUrl = (process.env.AI_API_BASE_URL || process.env.OPENAI_BASE_URL || process.env.AICHIXIA_API_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+  const model = process.env.AI_MODEL || process.env.OPENAI_MODEL || process.env.AICHIXIA_MODEL || "gpt-4o-mini";
+  const chatUrl = baseUrl.endsWith("/chat/completions") ? baseUrl : `${baseUrl}/chat/completions`;
+  return { apiKey, baseUrl, model, chatUrl };
+}
+
 function envWallets(): Wallet[] {
   const raw = process.env.WHALE_WALLETS || process.env.TRACKED_WALLETS || "";
   return raw.split(/[\n,]+/).map((x) => x.trim()).filter(Boolean).map((x) => {
@@ -170,12 +178,28 @@ function avg(wallets: Wallet[], addresses: Set<string>, field: keyof Wallet) {
 }
 
 async function aiReason(signal: Signal) {
-  if (!process.env.OPENAI_API_KEY) return signal.reason;
+  const ai = getAiConfig();
+  if (!ai.apiKey) return signal.reason;
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", { method: "POST", headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: process.env.OPENAI_MODEL || "gpt-4o-mini", temperature: 0.2, max_tokens: 150, messages: [{ role: "system", content: "Ringkas sebagai AI risk analyst crypto bahasa Indonesia. Jangan janji profit." }, { role: "user", content: JSON.stringify(signal) }] }) });
+    const res = await fetch(ai.chatUrl, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${ai.apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: ai.model,
+        temperature: 0.2,
+        max_tokens: 150,
+        messages: [
+          { role: "system", content: "Ringkas sebagai AI risk analyst crypto bahasa Indonesia. Jangan janji profit." },
+          { role: "user", content: JSON.stringify(signal) },
+        ],
+      }),
+    });
+    if (!res.ok) return signal.reason;
     const json = await res.json();
     return typeof json?.choices?.[0]?.message?.content === "string" ? json.choices[0].message.content.trim() : signal.reason;
-  } catch { return signal.reason; }
+  } catch {
+    return signal.reason;
+  }
 }
 
 function buildSignal(g: ReturnType<typeof groups>[number], pair: any, wallets: Wallet[]): Signal {
@@ -204,8 +228,9 @@ async function saveSignal(db: Db, signal: Signal, pair: any, dryRun: boolean) {
 
 export async function runWhaleAgent(input: AgentRunInput = {}): Promise<AgentRunResult> {
   const db = getServerDb();
+  const ai = getAiConfig();
   const minWinrate = envN("AGENT_MIN_WINRATE", 70), minTrades = envN("AGENT_MIN_TRADES_7D", 3), minCopyScore = envN("AGENT_MIN_COPY_SCORE", 65);
-  const config = { minWinrate, minTrades, minCopyScore, hasSupabase: Boolean(db), hasHelius: Boolean(process.env.HELIUS_API_KEY || process.env.NEXT_PUBLIC_HELIUS_API_KEY), hasOpenAi: Boolean(process.env.OPENAI_API_KEY) };
+  const config = { minWinrate, minTrades, minCopyScore, hasSupabase: Boolean(db), hasHelius: Boolean(process.env.HELIUS_API_KEY || process.env.NEXT_PUBLIC_HELIUS_API_KEY), hasAi: Boolean(ai.apiKey), aiBaseUrl: ai.apiKey ? ai.baseUrl : null, aiModel: ai.apiKey ? ai.model : null };
   if (!db) return { success: false, source: "live-agent", scannedWallets: 0, qualifiedWallets: 0, candidates: 0, signals: [], warnings: ["Supabase env belum lengkap."], config };
   const warnings: string[] = [];
   const allWallets = await loadWallets(db, Math.min(Math.max(input.limitWallets || 20, 1), 50));
