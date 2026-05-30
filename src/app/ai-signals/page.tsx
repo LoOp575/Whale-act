@@ -56,6 +56,8 @@ export default function AISignalsPage() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [agentMessage, setAgentMessage] = useState<string | null>(null);
+  const [agentSecret, setAgentSecret] = useState("");
+  const [lastResult, setLastResult] = useState<Record<string, unknown> | null>(null);
 
   async function loadSignals() {
     try {
@@ -75,18 +77,26 @@ export default function AISignalsPage() {
   async function runAgent() {
     try {
       setRunning(true);
+      setLastResult(null);
       setAgentMessage("Scanning active Solana pairs, discovering wallets, then generating signals...");
+
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (agentSecret.trim()) headers["x-agent-secret"] = agentSecret.trim();
+
       const response = await fetch("/api/agent/full-run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ limitPairs: 8, limitWallets: 30, txLimit: 20 }),
       });
       const json = await response.json();
+      setLastResult(json);
+
       if (!response.ok || !json.success) {
         const discoveryWarnings = json.discovery?.warnings?.join(" ") || "";
         const signalWarnings = json.signals?.warnings?.join(" ") || "";
         throw new Error(json.error || discoveryWarnings || signalWarnings || "Agent failed");
       }
+
       setAgentMessage(`Full agent selesai: ${json.discovery?.walletsSaved || 0} wallet tersimpan, ${json.discovery?.activitiesSaved || 0} activity tersimpan, ${json.signals?.signals?.length || 0} signal baru.`);
       await loadSignals();
     } catch (err) {
@@ -97,10 +107,16 @@ export default function AISignalsPage() {
   }
 
   useEffect(() => {
+    setAgentSecret(window.localStorage.getItem("whale-agent-secret") || "");
     loadSignals();
     const interval = window.setInterval(loadSignals, 30000);
     return () => window.clearInterval(interval);
   }, []);
+
+  function saveSecret(value: string) {
+    setAgentSecret(value);
+    window.localStorage.setItem("whale-agent-secret", value);
+  }
 
   return (
     <div className="space-y-6">
@@ -110,9 +126,33 @@ export default function AISignalsPage() {
         actions={<Button onClick={runAgent} disabled={running}>{running ? "Scanning..." : "Discover + Run Agent"}</Button>}
       />
 
+      <Card className="p-5 space-y-3">
+        <div>
+          <h3 className="text-base font-semibold text-white">Agent Control</h3>
+          <p className="text-xs text-dark-400 mt-1">Isi secret yang sama dengan AGENT_SECRET di Vercel. Secret disimpan lokal di browser kamu saja.</p>
+        </div>
+        <div className="flex flex-col md:flex-row gap-3">
+          <input
+            type="password"
+            value={agentSecret}
+            onChange={(event) => saveSecret(event.target.value)}
+            placeholder="AGENT_SECRET"
+            className="input-field flex-1"
+          />
+          <Button onClick={runAgent} disabled={running}>{running ? "Running..." : "Run Full Agent"}</Button>
+        </div>
+      </Card>
+
       {agentMessage && (
         <Card className="p-4">
           <p className="text-sm text-dark-200">{agentMessage}</p>
+        </Card>
+      )}
+
+      {lastResult && (
+        <Card className="p-4">
+          <p className="text-sm font-medium text-white mb-2">Last agent response</p>
+          <pre className="max-h-72 overflow-auto rounded-lg bg-dark-950/70 p-3 text-xs text-dark-300 whitespace-pre-wrap">{JSON.stringify(lastResult, null, 2)}</pre>
         </Card>
       )}
 
@@ -132,7 +172,7 @@ export default function AISignalsPage() {
       {!loading && !error && signals.length === 0 && (
         <div className="rounded-xl border border-dark-700/40 bg-dark-800/30 p-8 text-center">
           <p className="text-sm font-medium text-white">Belum ada signal real</p>
-          <p className="text-xs text-dark-400 mt-1">Klik Discover + Run Agent. Sistem akan cari wallet dulu, simpan ke Supabase, lalu buat signal.</p>
+          <p className="text-xs text-dark-400 mt-1">Isi AGENT_SECRET di panel Agent Control, lalu klik Run Full Agent.</p>
         </div>
       )}
 
