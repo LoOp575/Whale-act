@@ -75,11 +75,19 @@ export default function AISignalsPage() {
   async function runAgent() {
     try {
       setRunning(true);
-      setAgentMessage(null);
-      const response = await fetch("/api/agent/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limitWallets: 20, txLimit: 20 }) });
+      setAgentMessage("Scanning active Solana pairs, discovering wallets, then generating signals...");
+      const response = await fetch("/api/agent/full-run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limitPairs: 8, limitWallets: 30, txLimit: 20 }),
+      });
       const json = await response.json();
-      if (!response.ok || !json.success) throw new Error(json.error || (json.warnings || []).join(" ") || "Agent failed");
-      setAgentMessage(`Agent selesai: ${json.candidates || 0} kandidat, ${json.signals?.length || 0} signal baru.`);
+      if (!response.ok || !json.success) {
+        const discoveryWarnings = json.discovery?.warnings?.join(" ") || "";
+        const signalWarnings = json.signals?.warnings?.join(" ") || "";
+        throw new Error(json.error || discoveryWarnings || signalWarnings || "Agent failed");
+      }
+      setAgentMessage(`Full agent selesai: ${json.discovery?.walletsSaved || 0} wallet tersimpan, ${json.discovery?.activitiesSaved || 0} activity tersimpan, ${json.signals?.signals?.length || 0} signal baru.`);
       await loadSignals();
     } catch (err) {
       setAgentMessage(err instanceof Error ? err.message : "Agent run failed");
@@ -98,8 +106,8 @@ export default function AISignalsPage() {
     <div className="space-y-6">
       <PageHeader
         title="AI Signals"
-        description="Real buy/watch/skip decisions generated from profitable whale activity"
-        actions={<Button onClick={runAgent} disabled={running}>{running ? "Running..." : "Run Agent"}</Button>}
+        description="Auto-discover whale wallets, save them, then generate buy/watch/skip decisions"
+        actions={<Button onClick={runAgent} disabled={running}>{running ? "Scanning..." : "Discover + Run Agent"}</Button>}
       />
 
       {agentMessage && (
@@ -124,7 +132,7 @@ export default function AISignalsPage() {
       {!loading && !error && signals.length === 0 && (
         <div className="rounded-xl border border-dark-700/40 bg-dark-800/30 p-8 text-center">
           <p className="text-sm font-medium text-white">Belum ada signal real</p>
-          <p className="text-xs text-dark-400 mt-1">Tambahkan wallet profitable ke Supabase, lalu klik Run Agent. Tidak ada dummy fallback.</p>
+          <p className="text-xs text-dark-400 mt-1">Klik Discover + Run Agent. Sistem akan cari wallet dulu, simpan ke Supabase, lalu buat signal.</p>
         </div>
       )}
 
