@@ -53,10 +53,17 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action");
+    const q = (searchParams.get("q") || "").trim();
+    const minUsd = Number(searchParams.get("minUsd") || 0);
     const limit = Math.min(Number(searchParams.get("limit") || 80), 150);
 
     let query = db.from("live_activities").select("*").order("created_at", { ascending: false }).limit(limit);
     if (action && action !== "ALL") query = query.eq("action", action.toUpperCase());
+    if (minUsd > 0) query = query.gte("amount_usd", minUsd);
+    if (q) {
+      const safeQ = q.replaceAll("%", "").replaceAll(",", " ");
+      query = query.or(`wallet_address.ilike.%${safeQ}%,token_address.ilike.%${safeQ}%,token_symbol.ilike.%${safeQ}%,tx_hash.ilike.%${safeQ}%,description.ilike.%${safeQ}%,source.ilike.%${safeQ}%`);
+    }
 
     const { data, error } = await query;
     if (error) throw error;
