@@ -1,12 +1,13 @@
 # WhaleCopy AI / Whale Profit Agent
 
-Real whale-wallet tracking dashboard for Solana. This repo is no longer dummy-only: it now has Supabase storage, a whale profit agent, live activity ingestion, DexScreener market checks, and AI buy/watch/skip signal generation.
+Real whale-wallet tracking dashboard for Solana. This repo is no longer dummy-only: it now has Supabase storage, wallet discovery, a whale profit agent, live activity ingestion, DexScreener market checks, and AI buy/watch/skip signal generation.
 
 ## What it does
 
-- Stores tracked whale wallets in Supabase.
-- Filters profitable wallets with configurable rules, default minimum 70% 7D winrate.
-- Pulls recent wallet transactions through Helius when `HELIUS_API_KEY` is configured.
+- Discovers active Solana wallets from live pair/token flow.
+- Stores discovered and manually added wallets in Supabase.
+- Filters profitable wallets with configurable rules, default minimum 70% 7D winrate when profit metrics exist.
+- Pulls recent wallet and pair transactions through Helius when `HELIUS_API_KEY` is configured.
 - Reuses existing `live_activities` rows when Helius is not available.
 - Checks token market data through DexScreener.
 - Generates `BUY`, `STRONG_BUY`, `WATCH`, `SKIP`, or `SELL` signals.
@@ -21,7 +22,7 @@ Real whale-wallet tracking dashboard for Solana. This repo is no longer dummy-on
 - Supabase
 - Helius API for Solana wallet transactions
 - DexScreener public API for token market data
-- Optional OpenAI reasoning summary
+- Optional OpenAI-compatible AI reasoning summary
 
 ## Required Environment Variables
 
@@ -33,8 +34,11 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 HELIUS_API_KEY=your_helius_key
-OPENAI_API_KEY=optional_openai_key
-OPENAI_MODEL=gpt-4o-mini
+
+# OpenAI-compatible AI provider. Use this for OpenAI, Aichixia, or another compatible API.
+AI_API_KEY=your_ai_api_key
+AI_API_BASE_URL=https://www.aichixia.xyz/api/v1
+AI_MODEL=your_model_name
 
 AGENT_SECRET=choose_a_secret_for_manual_agent_calls
 CRON_SECRET=same_or_other_secret_for_vercel_cron
@@ -42,6 +46,12 @@ CRON_SECRET=same_or_other_secret_for_vercel_cron
 AGENT_MIN_WINRATE=70
 AGENT_MIN_TRADES_7D=3
 AGENT_MIN_COPY_SCORE=65
+```
+
+Optional discovery watchlist if you want to force the agent to scan specific Solana tokens:
+
+```bash
+DISCOVERY_TOKEN_ADDRESSES=token_address_1,token_address_2,token_address_3
 ```
 
 Optional fallback wallet input if Supabase has no wallets yet:
@@ -90,25 +100,27 @@ curl -X POST https://your-domain.vercel.app/api/wallets \
 
 The agent will prioritize wallets with at least 70% winrate and positive realized PnL.
 
-## Run Agent Manually
+## Run Full Agent Manually
+
+Full run means discovery first, then signal generation.
 
 ```bash
-curl -X POST https://your-domain.vercel.app/api/agent/run \
+curl -X POST https://your-domain.vercel.app/api/agent/full-run \
   -H "Content-Type: application/json" \
   -H "x-agent-secret: YOUR_AGENT_SECRET" \
-  -d '{"limitWallets":20,"txLimit":20}'
+  -d '{"limitPairs":8,"limitWallets":30,"txLimit":20}'
 ```
 
-Dry run without saving signals:
+Dry run without saving wallets/signals:
 
 ```bash
-curl "https://your-domain.vercel.app/api/agent/run?dryRun=true&limitWallets=20&txLimit=20" \
+curl "https://your-domain.vercel.app/api/agent/full-run?dryRun=true&limitPairs=8&limitWallets=30&txLimit=20" \
   -H "x-agent-secret: YOUR_AGENT_SECRET"
 ```
 
 ## Auto Run
 
-`vercel.json` runs `/api/agent/run` every 10 minutes using Vercel Cron. If `CRON_SECRET` is set, Vercel sends authorization automatically.
+`vercel.json` runs `/api/agent/full-run?limitPairs=8&limitWallets=30&txLimit=20` every 10 minutes using Vercel Cron. If `CRON_SECRET` is set, Vercel sends authorization automatically.
 
 ## Run Locally
 
@@ -118,6 +130,10 @@ npm run dev
 ```
 
 Open http://localhost:3000.
+
+## Deployment Trigger
+
+Last redeploy trigger: 2026-05-30.
 
 ## Important Notes
 
