@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { runWhaleAgent } from "@/lib/agent/whaleAgent";
 
 function authorized(request: NextRequest) {
-  const secret = process.env.AGENT_SECRET || process.env.CRON_SECRET;
-  if (!secret) return true;
+  const secrets = [process.env.AGENT_SECRET, process.env.CRON_SECRET].filter(Boolean);
+  if (!secrets.length) return true;
   const auth = request.headers.get("authorization") || "";
   const headerSecret = request.headers.get("x-agent-secret") || "";
-  return auth === `Bearer ${secret}` || headerSecret === secret;
+  return secrets.some((secret) => auth === `Bearer ${secret}` || headerSecret === secret);
 }
 
 export async function GET(request: NextRequest) {
