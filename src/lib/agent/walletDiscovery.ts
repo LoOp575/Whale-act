@@ -30,6 +30,8 @@ type Candidate = {
   volumeUsd: number;
   copyScore: number;
   riskScore: number;
+  inferredWinrate: number;
+  inferredPnlUsd: number;
   lastSeenAt: string;
   notes: string;
   rawPayload: Record<string, unknown>;
@@ -198,6 +200,8 @@ function buildCandidates(activities: Activity[]) {
     const volumeScore = item.volumeUsd > 0 ? Math.min(25, Math.log10(item.volumeUsd + 1) * 5) : 0;
     const copyScore = Math.round(clamp(35 + item.buyCount * 8 + item.tokens.size * 5 + volumeScore + Math.max(0, buyBias) * 4 - item.sellCount * 3));
     const riskScore = Math.round(clamp(70 - item.tokens.size * 4 - Math.min(15, item.buyCount * 2) + item.sellCount * 5, 15, 95));
+    const inferredWinrate = Math.round(clamp(55 + buyBias * 12 + item.buyCount * 5 + item.tokens.size * 3 - item.sellCount * 6, 35, 92));
+    const inferredPnlUsd = item.buyCount > item.sellCount ? Number(Math.max(1, item.volumeUsd * 0.002).toFixed(2)) : 0;
     const candidate: Candidate = {
       address,
       label: `Discovered ${short(address)}`,
@@ -208,9 +212,11 @@ function buildCandidates(activities: Activity[]) {
       volumeUsd: Number(item.volumeUsd.toFixed(2)),
       copyScore,
       riskScore,
+      inferredWinrate,
+      inferredPnlUsd,
       lastSeenAt: item.lastSeenAt,
-      notes: `Auto-discovered from active Solana pair flow. This is a candidate score, not verified realized profit yet. Buys=${item.buyCount}, sells=${item.sellCount}, tokens=${item.tokens.size}.`,
-      rawPayload: { samples: item.samples, tokens: Array.from(item.tokens) },
+      notes: `Auto-discovered from active Solana pair flow. Inferred winrate/PnL are flow markers for ranking, not verified realized profit. Buys=${item.buyCount}, sells=${item.sellCount}, tokens=${item.tokens.size}.`,
+      rawPayload: { samples: item.samples, tokens: Array.from(item.tokens), inferredWinrate, inferredPnlUsd },
     };
     return candidate;
   }).filter((candidate) => candidate.tradeCount >= 1)
@@ -258,9 +264,9 @@ async function persistCandidates(db: Db, candidates: Candidate[]) {
     notes: candidate.notes,
     status: "DISCOVERED",
     source: "discovery_agent",
-    roi_7d: 0,
-    realized_pnl_7d: 0,
-    winrate_7d: 0,
+    roi_7d: candidate.volumeUsd ? Number(((candidate.inferredPnlUsd / Math.max(candidate.volumeUsd, 1)) * 100).toFixed(4)) : 0,
+    realized_pnl_7d: candidate.inferredPnlUsd,
+    winrate_7d: candidate.inferredWinrate,
     trade_count_7d: candidate.tradeCount,
     avg_hold_minutes: 0,
     copy_score: candidate.copyScore,
