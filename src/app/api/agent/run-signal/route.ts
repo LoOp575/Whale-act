@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerDb } from "@/lib/db/server";
 import { callAi, parseJsonFromAi } from "@/lib/ai/provider";
+import { normalizeConfidence, shouldGuardActivity } from "@/lib/ai/guard";
 import { getLatestTokenPairs, getTokenPairs, mapPair, pickBestPair, searchPairs } from "@/lib/market/dexscreener";
 
 type Activity = {
@@ -32,7 +33,7 @@ function normalizeSignalType(value: unknown) {
 async function buildMarketContext(activities: Activity[]) {
   const chainId = process.env.CHAIN_ID || "solana";
   const tokenAddresses = unique(activities.map((activity) => activity.token_address));
-  const tokenSymbols = unique(activities.map((activity) => activity.token_symbol));
+  const tokenSymbols = unique(activities.map((activity) => activity.token_symbol).filter((symbol) => symbol !== "UNKNOWN"));
   const targets = tokenAddresses.length ? tokenAddresses.slice(0, 5) : tokenSymbols.slice(0, 5);
   const results = [];
 
@@ -74,12 +75,58 @@ export async function POST() {
     const marketContext = await buildMarketContext(activityRows);
     const latest = activityRows[0];
     const bestMarket = marketContext.find((item: any) => !item.error) as any;
+    const guard = shouldGuardActivity(activityRows, Boolean(bestMarket), num(bestMarket?.liquidityUsd));
+
+    if (guard.shouldGuard) {
+      const guardRow = {
+        signal_type: "WARNING",
+        wallet_address: latest.wallet_address,
+        token_address: latest.token_address,
+        token_symbol: latest.token_symbol || "UNKNOWN",
+        confidence: 25,
+        reason: "Activity skipped because token context or liquid market data is incomplete.",
+        risk_note: "No paper entry is allowed without valid token symbol, liquidity, and market data.",
+        suggested_action: "WAIT",
+        entry_plan: "No entry.",
+        exit_plan: "Ignore unless a matching paper position exists.",
+        invalid_if: "Valid token liquidity and market context become available.",
+        time_horizon: "immediate",
+        position_size_usd: 0,
+        price_change_24h: 0,
+        volume_24h: 0,
+        liquidity_usd: 0,
+        status: "NEW",
+        source: "ai_agent",
+        raw_payload: { guard: true, activities: activityRows, marketContext },
+      };
+
+      const { data: signal, error: signalError } = await db.from("signals").insert(guardRow).select("*").single();
+      if (signalError) throw signalError;
+
+      await db.from("agent_logs").insert({
+        agent_name: "signal_agent",
+        action: "guard_signal",
+        input_summary: `${activityRows.length} live activities analyzed`,
+        output_summary: "WARNING guard signal created",
+        level: "warning",
+        raw_payload: guardRow,
+      });
+
+      return NextResponse.json({
+        success: true,
+        source: "ai_agent",
+        created: 1,
+        guarded: true,
+        data: signal,
+        marketContext,
+      });
+    }
 
     const aiText = await callAi([
       {
         role: "system",
         content:
-          "Kamu adalah WhaleCopy AI, analis wallet whale Solana untuk paper trading. Jangan eksekusi trade asli. Nilai wallet activity, token momentum, liquidity, volume, price action, dan exit risk. Jika data lemah pilih WAIT atau REJECT. Jika liquidity rendah pilih WARNING atau REJECT. Jika harga sudah pump terlalu jauh pilih WAIT. Jika wallet berkualitas baru masuk dan momentum sehat, pilih BUY. Jika whale mulai jual atau momentum melemah, pilih EXIT atau WARNING. Return hanya JSON valid dengan keys: signal_type, confidence, wallet_address, token_address, token_symbol, reason, risk_note, suggested_action, entry_plan, exit_plan, invalid_if, time_horizon, position_size_usd."
+          "Kamu adalah WhaleCopy AI, analis wallet whale Solana untuk paper trading. Jangan eksekusi trade asli. Nilai wallet activity, token momentum, liquidity, volume, price action, dan exit risk. Jika data lemah pilih WAIT atau REJECT. Jika liquidity rendah pilih WARNING atau REJECT. Jika harga sudah pump terlalu jauh pilih WAIT. Jika wallet berkualitas baru masuk dan momentum sehat, pilih BUY. Jika whale mulai jual atau momentum melemah, pilih EXIT atau WARNING. Return hanya JSON valid dengan keys: signal_type, confidence, wallet_address, token_address, token_symbol, reason, risk_note, suggested_action, entry_plan, exit_plan, invalid_if, time_horizon, position_size_usd. Confidence harus skala 0 sampai 100."
       },
       {
         role: "user",
@@ -105,7 +152,7 @@ export async function POST() {
       wallet_address: parsed.wallet_address || latest.wallet_address,
       token_address: parsed.token_address || latest.token_address || bestMarket?.tokenAddress || null,
       token_symbol: parsed.token_symbol || latest.token_symbol || bestMarket?.tokenSymbol || "UNKNOWN",
-      confidence: num(parsed.confidence),
+      confidence: normalizeConfidence(parsed.confidence),
       reason: String(parsed.reason || "AI signal generated from live wallet activity."),
       risk_note: String(parsed.risk_note || "Review manually. Paper trading only."),
       suggested_action: String(parsed.suggested_action || signalType),
